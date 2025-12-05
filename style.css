@@ -1,0 +1,749 @@
+/* Pixelated text rendering */
+body, body * {
+    -webkit-font-smoothing: none;
+    font-smooth: never;
+    text-rendering: optimizeSpeed;
+}
+
+/* ================================
+   GLOBAL & CANVAS (lag fix: no heavy bg, simple)
+   ================================ */
+body, html {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+  height: 100%;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+  image-rendering: pixelated;
+}
+
+/* INTRO BACKDROP (farm art only during intro) */
+#intro-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+
+    /* farm image + dark vignette */
+    background-image:
+        radial-gradient(ellipse at center, rgba(0,0,0,0.3), rgba(0,0,0,0.85)),
+        url("intro_farm_bg.png");
+
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+
+    opacity: 1;
+    transition: opacity 0.5s ease-out;
+}
+
+
+/* when we hide the intro, fade this out */
+#intro-backdrop.intro-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+
+
+/* ================================
+   CELESTE-STYLE DIALOG SYSTEM (unchanged)
+   ================================ */
+/* ================================
+   CUTSCENE FARMER (fixed version)
+================================ */
+
+#cutscene-farmer {
+    position: fixed;
+    bottom: 8vh;
+    right: -120px;     /* move him further to the side so he clears the dialog */
+    width: auto;
+    height: auto;
+    z-index: 110;
+    pointer-events: none;
+}
+
+#cutscene-farmer-img {
+    height: clamp(240px, 42vh, 480px);
+    image-rendering: pixelated;
+    filter: drop-shadow(0 14px 18px rgba(0,0,0,0.65));
+    transform: scaleX(1);
+    animation: farmer-bob 1.3s ease-in-out infinite alternate;
+}
+
+
+.cutscene-hidden {
+  display: none;
+}
+
+/* Farmer walks in from the right */
+@keyframes farmer-walk-in {
+  0% {
+    right: -280px;
+    bottom: 6vh;
+  }
+  100% {
+    right: 18vw;
+    bottom: 12vh;
+  }
+}
+
+/* Farmer waves */
+@keyframes farmer-wave {
+  0%   { transform: scaleX(-1) rotate(0deg); }
+  25%  { transform: scaleX(-1) rotate(4deg); }
+  50%  { transform: scaleX(-1) rotate(-3deg); }
+  75%  { transform: scaleX(-1) rotate(4deg); }
+  100% { transform: scaleX(-1) rotate(0deg); }
+}
+
+
+
+/* Intro / dialog container */
+#dialog-container {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;   /* center horizontally */
+  align-items: center;       /* center vertically (change to flex-end to push lower) */
+  pointer-events: none;
+  z-index: 200;              /* above farmer + backdrop */
+  color: #ffffff;
+  text-shadow: 0 2px 4px #000000;
+}
+
+
+/* hide when intro is done */
+.dialog-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+
+.dialog-layout {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4vw;
+  max-width: 95vw;
+}
+
+.dialog-bubble {
+  position: relative;
+  width: 680px;
+  max-width: 68vw;
+  aspect-ratio: 3.1 / 1;
+  /* avoid loading missing bubble PNG; provide styled fallback */
+  background: radial-gradient(circle at 10% 10%, rgba(250,204,21,0.12), transparent 25%),
+              linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.95));
+  padding: 72px 84px 64px 84px; /* tuned for your bubble look */
+  box-sizing: border-box;
+  image-rendering: pixelated;
+}
+
+/* Text inside the bubble */
+#dialog-text,
+.dialog-text {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  color: #ffffff;
+  line-height: 1.6;
+  text-shadow: 0 0 6px #000;
+}
+
+/* "Press SPACE" indicator */
+#dialog-continue {
+  margin-top: 12px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: right;
+  opacity: 0.9;
+}
+
+.dialog-continue.blink {
+  animation: dialog-blink 0.9s steps(2, start) infinite;
+}
+
+@keyframes dialog-blink {
+  0%, 50%   { opacity: 0.2; }
+  51%, 100% { opacity: 0.95; }
+}
+
+/* Big farmer portrait on the right */
+#dialog-portrait {
+    display: none;          /* ← hides the old portrait */
+    pointer-events: none;
+}
+
+#dialog-portrait img {
+  height: clamp(320px, 52vh, 580px);
+  width: auto;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.7));
+  animation: farmer-bob 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes farmer-bob {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-8px); }
+}
+
+.portrait-hidden { display: none; }
+
+/* Mobile fallback – stack vertically if screen is tiny */
+@media (max-width: 860px) {
+  .dialog-layout {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 10vh;
+  }
+  
+  .dialog-bubble {
+    width: 90vw;
+    max-width: none;
+    padding: 10vw 12vw;
+  }
+  
+  #dialog-portrait img {
+    height: 42vh;
+  }
+}
+
+/* NEW SKY ANIMATIONS (crazy good, no lag – keyframe only on needed) */
+@keyframes nebula-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.6; }
+}
+
+@keyframes moon-glow {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.2); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes tree-sway {
+  0% { transform: rotate(0deg); }
+  50% { transform: rotate(2deg); }
+  100% { transform: rotate(0deg); }
+}
+
+@keyframes windmill-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes crop-sway {
+  0% { transform: translateX(0); }
+  50% { transform: translateX(2px); }
+  100% { transform: translateX(0); }
+}
+
+/* HUD / UI STYLES (same as before, no lag changes – all good) */
+.hud-top {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.7);
+  pointer-events: none;
+  min-width: 280px;
+}
+.bar {
+  width: 260px;
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(148,163,184,0.7);
+  overflow: hidden;
+  position: relative;
+}
+.bar-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+}
+.bar-label {
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  font-size: 14px;                  /* bigger */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #f9fafb;                   /* near white */
+  opacity: 1;
+  margin-top: 2px;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.9),
+    -1px 0 rgba(0,0,0,0.9),
+    1px 0 rgba(0,0,0,0.9),
+    0 -1px rgba(0,0,0,0.9);         /* dark outline */
+}
+
+.hud-stats {
+  display: flex;
+  gap: 14px;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  font-size: 13px;                  /* nice HUD size */
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #facc15;                   /* yellow like your title */
+  opacity: 1;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,0.9),
+    -1px 0 rgba(0,0,0,0.9),
+    1px 0 rgba(0,0,0,0.9),
+    0 -1px rgba(0,0,0,0.9);
+}
+
+/* ARC streak bar (under main HUD) */
+.streak-bar-wrapper {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+  width: 220px;
+  font-size: 10px;
+  font-family: 'Press Start 2P', monospace;
+  color: #e5e7eb;
+  text-shadow: 0 0 6px #000;
+}
+
+.streak-title {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.streak-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(148,163,184,0.8);
+  overflow: hidden;
+  position: relative;
+}
+
+.streak-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transform: scaleX(0);
+}
+
+/* Boost bars (bottom of HUD) */
+.boost-bars {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  font-size: 14px; /* bigger */
+  font-family: 'Press Start 2P', monospace; /* pixelated */
+  color: #fff; /* brighter */
+  text-shadow: 0 0 6px #000; /* stronger visibility */
+}
+
+.boost-bar-wrapper {
+  display: none;
+  width: 220px;
+}
+.boost-title {
+  text-align: center;
+  margin-bottom: 3px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-family: 'Press Start 2P', monospace;
+  color: #fff;
+  text-shadow: 0 0 6px #000;
+}
+
+.boost-bar {
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(15,23,42,0.95);
+  border: 1px solid rgba(148,163,184,0.7);
+  overflow: hidden;
+  position: relative;
+}
+.boost-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+}
+
+/* Bottom center info */
+.bottom-center {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%);
+  font-size: 12px;
+  color: #9ca3af;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.9);
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Game over */
+.game-over {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background: radial-gradient(circle at center, rgba(15,23,42,0.9), rgba(15,23,42,0.96));
+  pointer-events: auto;
+}
+.game-over-inner {
+  padding: 18px 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: radial-gradient(circle at 0 0, rgba(56,189,248,0.3), transparent 60%),
+              radial-gradient(circle at 100% 100%, rgba(34,197,94,0.3), transparent 60%),
+              rgba(15,23,42,0.98);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.85);
+  text-align: center;
+  max-width: 360px;
+}
+.game-over h1 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+.game-over p {
+  margin: 4px 0;
+  font-size: 13px;
+  color: #e5e7eb;
+}
+.game-over button {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.8);
+  background: radial-gradient(circle at 0 0, #22c55e, #15803d);
+  color: #f9fafb;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(22,163,74,0.6);
+  pointer-events: auto;
+}
+.game-over button:hover {
+  filter: brightness(1.05);
+}
+
+/* Achievements sidebar (right) */
+.achievements {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 260px;
+  padding: 12px 12px 10px;
+  border-radius: 16px;
+  border: 1px solid rgba(148,163,184,0.5);
+  background: radial-gradient(circle at 0 0, rgba(45,212,191,0.25), transparent 60%),
+              rgba(15,23,42,0.96);
+  box-shadow: 0 16px 40px rgba(15,23,42,0.9);
+  pointer-events: auto;
+  font-size: 12px;
+}
+.achievements-title {
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  opacity: 0.8;
+  margin-bottom: 4px;
+}
+.achievements-sub {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 8px;
+}
+.achievement {
+  margin-bottom: 8px;
+  padding: 6px 7px;
+  border-radius: 10px;
+  background: rgba(15,23,42,0.85);
+  border: 1px solid rgba(148,163,184,0.4);
+}
+.achievement-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+.achievement-name {
+  font-weight: 500;
+}
+.achievement-reward {
+  font-size: 11px;
+  color: #bbf7d0;
+}
+.achievement-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(15,23,42,1);
+  border: 1px solid rgba(148,163,184,0.6);
+  overflow: hidden;
+  position: relative;
+}
+.achievement-fill {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  background: linear-gradient(90deg, #22c55e, #a3e635);
+  box-shadow: 0 0 16px rgba(74,222,128,0.75);
+}
+.achievement-meta {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+  display: flex;
+  justify-content: space-between;
+}
+.achievements-footer {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 6px;
+}
+.pill-arc {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(74,222,128,0.6);
+  background: rgba(21,128,61,0.15);
+  font-size: 11px;
+  color: #bbf7d0;
+}
+
+/* MAIN MENU */
+.main-menu {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+.main-menu-inner {
+  padding: 20px 24px 22px;
+  border-radius: 18px;
+  border: 1px solid rgba(250,204,21,0.8);
+  background:
+    radial-gradient(circle at 0 0, rgba(250,204,21,0.25), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(56,189,248,0.25), transparent 60%),
+    rgba(15,23,42,0.96);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.95);
+  text-align: center;
+  min-width: 320px;
+  max-width: 420px;
+}
+.menu-title {
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  font-size: 18px;
+  color: #facc15;
+  text-shadow: 0 0 10px rgba(250,204,21,0.9), 0 0 20px rgba(250,204,21,0.7);
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+.menu-subtitle {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 14px;
+}
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+}
+.menu-buttons button {
+  pointer-events: auto;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: radial-gradient(circle at 0 0, rgba(250,204,21,0.15), rgba(15,23,42,0.95));
+  color: #e5e7eb;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+}
+.menu-buttons button:hover {
+  filter: brightness(1.15);
+  box-shadow: 0 0 18px rgba(250,204,21,0.4);
+}
+.menu-footer {
+  margin-top: 10px;
+  font-size: 10px;
+  color: #6b7280;
+}
+
+/* CENTER POPUP TEXT */
+.center-toast {
+    position: absolute;
+    left: 50%;
+    top: 40%;
+    transform: translate(-50%, -50%);
+    font-family: "Press Start 2P", system-ui, sans-serif;
+    font-size: 20px;            /* bigger again */
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #facc15;
+    text-align: center;
+    text-shadow: 0 0 4px rgba(250,204,21,0.9), 0 0 8px rgba(250,204,21,0.7);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease-out;
+    white-space: pre-line;
+}
+
+/* UPGRADE / FORGE PANEL */
+.upgrade-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+  background: radial-gradient(circle at center, rgba(15,23,42,0.94), rgba(15,23,42,0.98));
+  pointer-events: auto;
+}
+.upgrade-inner {
+  padding: 18px 20px;
+  border-radius: 18px;
+  border: 1px solid rgba(56,189,248,0.8);
+  background:
+    radial-gradient(circle at 0 0, rgba(56,189,248,0.25), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(34,197,94,0.25), transparent 60%),
+    rgba(15,23,42,0.98);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.9);
+  min-width: 320px;
+  max-width: 420px;
+  pointer-events: auto;
+  font-size: 12px;
+}
+.upgrade-inner h2 {
+  margin: 0 0 6px;
+  font-family: "Press Start 2P", system-ui, sans-serif;
+  font-size: 14px;
+  color: #38bdf8;
+  text-align: center;
+}
+.upgrade-inner p {
+  margin: 2px 0;
+  color: #e5e7eb;
+  font-size: 11px;
+  text-align: center;
+}
+.upgrade-section {
+  margin-top: 10px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(148,163,184,0.5);
+}
+.upgrade-section h3 {
+  margin: 0 0 4px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+.upgrade-info {
+  background: rgba(15,23,42,0.95);
+  border-radius: 10px;
+  border: 1px solid rgba(148,163,184,0.5);
+  padding: 6px 8px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 11px;
+  white-space: pre-line;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.upgrade-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 6px;
+}
+.upgrade-buttons button,
+.upgrade-close-btn {
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,0.7);
+  background: radial-gradient(circle at 0 0, rgba(56,189,248,0.15), rgba(15,23,42,0.95));
+  color: #e5e7eb;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.upgrade-buttons button:hover,
+.upgrade-close-btn:hover {
+  filter: brightness(1.1);
+  box-shadow: 0 0 14px rgba(56,189,248,0.5);
+}
+/* === GAME TITLE HUD === */
+#game-title {
+  position: fixed;
+  top: 3vh;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: 'Press Start 2P', system-ui, sans-serif;
+  font-size: clamp(16px, 2.4vw, 26px);
+  letter-spacing: 0.25em;
+  color: #facc15; /* yellow */
+  text-shadow:
+    0 3px 0 #7c2d12,
+    0 0 6px rgba(0, 0, 0, 0.8),
+    0 0 18px rgba(250, 204, 21, 0.9);
+  z-index: 130;
+  pointer-events: none;
+}
+/* ============================
+   CHARACTER SELECT HUD JUICE
+   ============================ */
+
+.char-select-card {
+  box-shadow: 0 12px 30px rgba(0,0,0,0.75);
+}
+
+/* breathing pixel anim for selection thumbnails */
+.char-select-sprite {
+  animation: char-select-breathe 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes char-select-breathe {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(-3px);
+  }
+}
+
+/* stat rows – we already style inline, but this helps spacing on tiny screens */
+.char-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

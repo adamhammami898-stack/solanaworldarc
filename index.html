@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>WORLD OF SOLANA ARC</title>
+
+  <!-- Fonts -->
+  <style type="text/css">@font-face {font-family:Press Start 2P;font-style:normal;font-weight:400;src:url(/cf-fonts/s/press-start-2p/5.0.18/cyrillic-ext/400/normal.woff2);unicode-range:U+0460-052F,U+1C80-1C88,U+20B4,U+2DE0-2DFF,U+A640-A69F,U+FE2E-FE2F;font-display:swap;}@font-face {font-family:Press Start 2P;font-style:normal;font-weight:400;src:url(/cf-fonts/s/press-start-2p/5.0.18/latin-ext/400/normal.woff2);unicode-range:U+0100-02AF,U+0304,U+0308,U+0329,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20CF,U+2113,U+2C60-2C7F,U+A720-A7FF;font-display:swap;}@font-face {font-family:Press Start 2P;font-style:normal;font-weight:400;src:url(/cf-fonts/s/press-start-2p/5.0.18/cyrillic/400/normal.woff2);unicode-range:U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116;font-display:swap;}@font-face {font-family:Press Start 2P;font-style:normal;font-weight:400;src:url(/cf-fonts/s/press-start-2p/5.0.18/latin/400/normal.woff2);unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;font-display:swap;}@font-face {font-family:Press Start 2P;font-style:normal;font-weight:400;src:url(/cf-fonts/s/press-start-2p/5.0.18/greek/400/normal.woff2);unicode-range:U+0370-03FF;font-display:swap;}</style>
+
+  <!-- Solana Wallet Adapter (Phantom, Solflare, etc.) -->
+  <script src="https://unpkg.com/@solana/wallet-adapter-react@0.15.8/lib/umd/index.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-wallets@0.19.32/lib/umd/index.js"></script>
+  <script src="https://unpkg.com/@solana/wallet-adapter-base@0.9.23/lib/umd/index.js"></script>
+  <script src="https://unpkg.com/@solana/web3.js@1.95.3/lib/index.iife.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Inline layout CSS: make canvas cover viewport and sit behind UI -->
+  <style>
+    html, body { height:100%; margin:0; background:#000; }
+    canvas#game {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      z-index: 0;
+      background: transparent;
+    }
+
+  </style>
+</head>
+<body>
+
+  <canvas id="game"></canvas>
+  <div id="game-title">SOLANA WORLD ARC</div>
+
+  <!-- INTRO BACKDROP (full farm art) -->
+  <div id="intro-backdrop"></div>
+
+  <!-- CELESTE-STYLE DIALOG (uses style.css) -->
+<!-- CUTSCENE FARMER -->
+<div id="cutscene-farmer" class="cutscene-hidden">
+    <img src="farmer_npc.png" id="cutscene-farmer-img">
+</div>
+
+  <div id="dialog-container" class="dialog-hidden">
+    <div class="dialog-layout">
+      <div class="dialog-bubble">
+        <p id="dialog-text"></p>
+        <p id="dialog-continue" class="blink">Press SPACE to continue</p>
+        <!-- clickable overlay to ensure advancing works on all platforms -->
+        <button id="dialog-advance" aria-label="Continue dialog" style="position:absolute;inset:0;border:0;background:transparent;cursor:pointer;pointer-events:auto;"></button>
+        <!-- Skip hint: press E to skip the entire intro -->
+        <p id="dialog-skip" style="margin-top:4px;font-size:9px;color:#9ca3af;">Press E to skip intro</p>
+      </div>
+      <div id="dialog-portrait">
+        <img src="farmer_npc.png" alt="Farmer" />
+      </div>
+    </div>
+  </div>
+
+  <!-- SOLANA WALLET CONNECT (top-right) -->
+  <div id="wallet-connect-wrapper" style="position:fixed;top:12px;right:16px;z-index:50;pointer-events:auto;">
+    <button id="wallet-connect-btn" style="padding:8px 16px;border-radius:999px;background:#facc15;color:#000;font-family:'Press Start 2P';font-size:11px;cursor:pointer;">
+      CONNECT WALLET
+    </button>
+    <div id="wallet-address" style="margin-top:4px;font-size:10px;color:#a3e635;text-align:center;opacity:0;"></div>
+  </div>
+
+  <!-- HUD top center -->
+  <div class="hud-top">
+  <!-- HP -->
+  <div class="bar">
+    <div id="hp-bar" class="bar-fill"></div>
+  </div>
+  <!-- XP -->
+  <div class="bar">
+    <div id="xp-bar" class="bar-fill"></div>
+  </div>
+  <!-- ARC STREAK TIMER BAR -->
+  <div class="bar">
+<div class="bar-label" id="arc-streak-title">ARC STREAK</div>
+<div class="bar-label" id="arc-streak-value">x1.0</div>
+    <div id="arc-streak-bar" class="bar-fill"></div>
+  </div>
+
+  <div class="bar-label" id="hp-label">HP</div>
+  <div class="bar-label" id="xp-label">XP</div>
+  <!-- label for the streak bar – JS will overwrite this text -->
+
+  <div class="hud-stats">
+    <span id="level-label">LVL 1</span>
+    <span id="points-label">ARC: 0</span>
+    <!-- ARC multiplier text -->
+    <span id="arc-mult-label">ARC x1.0</span>
+    <span id="kills-label">Kills: 0</span>
+    <span id="dash-label">Dash: ready</span>
+    <span id="boss-label">Boss: incoming…</span>
+  </div>
+
+  <div class="boost-bars">
+    <div class="boost-bar-wrapper" id="xp-boost-wrapper">
+      <div class="boost-title">DOUBLE XP</div>
+      <div class="boost-bar">
+        <div class="boost-fill" id="xp-boost-fill"></div>
+      </div>
+    </div>
+    <div class="boost-bar-wrapper" id="speed-boost-wrapper">
+      <div class="boost-title">SPEED BOOST</div>
+      <div class="boost-bar">
+        <div class="boost-fill" id="speed-boost-fill"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- Achievements sidebar -->
+  <div class="achievements">
+    <div class="achievements-title">Arc → Solana Goals</div>
+    <div class="achievements-sub">
+      Earn ARC in-game. Later this links to real SOL payouts from your backend (pumpfun, etc).
+    </div>
+
+    <div class="achievement">
+      <div class="achievement-header">
+        <span class="achievement-name">Starter Grind</span>
+        <span class="achievement-reward">Preview: 0.01 SOL (mock)</span>
+      </div>
+      <div class="achievement-bar">
+        <div class="achievement-fill" id="ach-1-fill"></div>
+      </div>
+      <div class="achievement-meta">
+        <span>10,000 ARC</span>
+        <span id="ach-1-meta">0%</span>
+      </div>
+    </div>
+
+    <div class="achievement">
+      <div class="achievement-header">
+        <span class="achievement-name">Rising Slayer</span>
+        <span class="achievement-reward">Preview: 0.05 SOL (mock)</span>
+      </div>
+      <div class="achievement-bar">
+        <div class="achievement-fill" id="ach-2-fill"></div>
+      </div>
+      <div class="achievement-meta">
+        <span>25,000 ARC</span>
+        <span id="ach-2-meta">0%</span>
+      </div>
+    </div>
+
+    <div class="achievement">
+      <div class="achievement-header">
+        <span class="achievement-name">ARC Master</span>
+        <span class="achievement-reward">Preview: 0.10 SOL (mock)</span>
+      </div>
+      <div class="achievement-bar">
+        <div class="achievement-fill" id="ach-3-fill"></div>
+      </div>
+      <div class="achievement-meta">
+        <span>50,000 ARC</span>
+        <span id="ach-3-meta">0%</span>
+      </div>
+    </div>
+
+    <div class="achievements-footer">
+      <span class="pill-arc">
+        <span>⚡</span>
+        <span>Grind ARC → later claim SOL on-chain.</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Main menu -->
+  <div class="main-menu" id="main-menu">
+    <div class="main-menu-inner">
+      <div class="menu-title">WORLD OF<br/>SOLANA ARC</div>
+      <div class="menu-subtitle">
+        A top-down ARC grinder. Farm points, chase bosses, unlock SOL rewards later.
+      </div>
+      <div class="menu-buttons">
+        <button data-action="play">PLAY</button>
+        <button data-action="settings">SETTINGS</button>
+        <button data-action="options">OPTIONS</button>
+        <button data-action="info">INFO</button>
+      </div>
+      <div class="menu-footer">
+        Click anywhere to enable sound. This is a prototype – no real SOL yet.
+      </div>
+    </div>
+  </div>
+
+  <!-- Center popup text -->
+  <div class="center-toast" id="center-toast"></div>
+
+  <div class="bottom-center">
+    Skill-based prototype. No real SOL in this demo (yet).<br/>
+    <span style="font-size:11px;">Later: connect these ARC goals + wallet + pumpfun backend.</span>
+  </div>
+
+  <!-- Game Over -->
+  <div class="game-over" id="game-over">
+    <div class="game-over-inner">
+      <h1>Game Over</h1>
+      <p id="game-over-stats"></p>
+      <p style="margin-top:8px;">Press <strong>R</strong> or click below to restart.</p>
+      <button id="restart-btn">Restart Run</button>
+    </div>
+  </div>
+
+  <!-- UPGRADE FORGE PANEL -->
+  <div class="upgrade-overlay" id="upgrade-overlay">
+    <div class="upgrade-inner">
+      <h2>FORGE OF ARC</h2>
+      <p id="upgrade-arc-label">ARC: 0</p>
+      <p>Spend ARC to roll new weapons & gear. Later: connect to Solana rewards.</p>
+
+      <div class="upgrade-section">
+        <h3>Weapon</h3>
+        <div class="upgrade-info" id="weapon-info"></div>
+        <div class="upgrade-buttons">
+          <button id="roll-weapon-btn">Roll new weapon (200 ARC)</button>
+        </div>
+      </div>
+
+      <div class="upgrade-section">
+        <h3>Gear</h3>
+        <div class="upgrade-info" id="gear-info"></div>
+        <div class="upgrade-buttons">
+          <button id="roll-gear-btn">Roll random gear (150 ARC)</button>
+        </div>
+      </div>
+
+      <button class="upgrade-close-btn" id="close-upgrade-btn">Close (E)</button>
+    </div>
+  </div>
+
+  <!-- Add fallback inline styles to avoid 404s for missing images and provide safe visuals -->
+  <style>
+    
+    .dialog-bubble {
+      /* Fallback box styling if dialog-bubble.png is not present */
+      background: radial-gradient(circle at 10% 10%, rgba(250,204,21,0.12), transparent 25%),
+                  linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.95));
+      border: 2px solid rgba(250,204,21,0.12);
+      box-shadow: 0 18px 48px rgba(2,6,23,0.85);
+      padding: 56px 64px 48px 64px; /* adapt to bubble look without PNG */
+      image-rendering: auto;
+    }
+
+    /* If the portrait image file is missing, hide the <img> to avoid broken icon display */
+    #dialog-portrait img[onerror] { display: inline-block; }
+ </style>
+<script src="game.js"></script>
+</body>
+</html>
